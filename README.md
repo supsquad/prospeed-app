@@ -2,6 +2,8 @@
 
 A desktop application for testing and comparing proxy server performance metrics including download speed, upload speed, latency, and geolocation information.
 
+![App Screenshot](screenshot.png)
+
 ## Features
 
 - Test system bandwidth without proxy

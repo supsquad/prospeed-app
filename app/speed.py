@@ -1,11 +1,12 @@
-import socket
+import random
 import threading
+import time
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
 from urllib.parse import urlparse
 
+import httpx
 import requests
-import socks
 import speedtest
 
 
@@ -251,7 +252,7 @@ class ProxySpeedTester:
     def measure_speed(self, proxy_dict):
         """Measure download/upload speed and latency using speedtest-cli"""
         try:
-            # Configure proxy for speedtest-cli using socks proxy
+            # Use httpx-based speedtest for all proxy types (HTTP/HTTPS/SOCKS4/SOCKS5)
             if proxy_dict:
                 return self._measure_speed_with_speedtest_proxy(proxy_dict)
 
@@ -277,46 +278,71 @@ class ProxySpeedTester:
             return 0, 0, 9999
 
     def _measure_speed_with_speedtest_proxy(self, proxy_dict):
-        """Use speedtest-cli with SOCKS proxy by monkey patching"""
-        original_socket = socket.socket
+        """Universal proxy speed test using httpx library (supports SOCKS4/5 and HTTP)"""
         try:
-            # Configure SOCKS proxy
-            proxy_type = socks.SOCKS5
-            if proxy_dict["protocol"] == "socks4":
-                proxy_type = socks.SOCKS4
-            elif proxy_dict["protocol"] in ["http", "https"]:
-                proxy_type = socks.HTTP
+            # Build proxy URL - httpx supports socks5://, socks4://, http:// natively
+            if proxy_dict.get("username") and proxy_dict.get("password"):
+                proxy_url = f"{proxy_dict['protocol']}://{proxy_dict['username']}:{proxy_dict['password']}@{proxy_dict['host']}:{proxy_dict['port']}"
+            else:
+                proxy_url = f"{proxy_dict['protocol']}://{proxy_dict['host']}:{proxy_dict['port']}"
 
-            # Set default proxy for all sockets
-            socks.set_default_proxy(
-                proxy_type,
-                proxy_dict["host"],
-                proxy_dict["port"],
-                username=proxy_dict.get("username"),
-                password=proxy_dict.get("password"),
-            )
-            socket.socket = socks.socksocket
+            # httpx supports SOCKS and HTTP proxies natively
+            # Note: httpx uses 'proxy' (singular), not 'proxies' (plural)
+            with httpx.Client(proxy=proxy_url, timeout=30.0) as client:
+                # 1. Get speedtest server list
+                servers_response = client.get(
+                    "https://www.speedtest.net/api/js/servers?engine=js&limit=5"
+                )
+                servers = servers_response.json()
 
-            # Run speedtest through proxy
-            st = speedtest.Speedtest()
-            st.get_best_server()
-            latency = st.results.ping
+                if not servers:
+                    raise Exception("No servers available")
 
-            download_bps = st.download()
-            download_speed_mbps = download_bps / 1_000_000
+                server = servers[0]
+                server_url = server['url']
 
-            upload_bps = st.upload()
-            upload_speed_mbps = upload_bps / 1_000_000
+                # 2. Measure latency
+                latency_tests = []
+                for _ in range(3):
+                    start = time.time()
+                    ping_url = f"{server_url}/speedtest/latency.txt?x={random.randint(1, 100000)}"
+                    client.get(ping_url)
+                    latency_tests.append((time.time() - start) * 1000)
 
-            return download_speed_mbps, upload_speed_mbps, latency
+                latency = sum(latency_tests) / len(latency_tests)
+
+                # 3. Download test - multiple sizes like speedtest-cli
+                download_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
+                total_bytes = 0
+                start_time = time.time()
+
+                for size_kb in download_sizes:
+                    url = f"{server_url}/speedtest/random{size_kb}x{size_kb}.jpg?x={random.randint(1, 100000)}"
+                    response = client.get(url)
+                    total_bytes += len(response.content)
+
+                download_time = time.time() - start_time
+                download_speed_mbps = (total_bytes * 8) / (download_time * 1_000_000)
+
+                # 4. Upload test
+                upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576]
+                total_uploaded = 0
+                start_time = time.time()
+
+                for size in upload_sizes:
+                    data = b'0' * size
+                    url = f"{server_url}/speedtest/upload.php?x={random.randint(1, 100000)}"
+                    client.post(url, content=data)
+                    total_uploaded += size
+
+                upload_time = time.time() - start_time
+                upload_speed_mbps = (total_uploaded * 8) / (upload_time * 1_000_000)
+
+                return download_speed_mbps, upload_speed_mbps, latency
 
         except Exception as e:
             print(f"Speedtest proxy error: {e}")
             return 0, 0, 9999
-        finally:
-            # Always restore original socket
-            socket.socket = original_socket
-            socks.set_default_proxy(None)
 
     def test_proxy(self, proxy_string):
         """Test a single proxy and return results"""

@@ -131,8 +131,36 @@ prospeed-app/
 
 - **httpx**: Modern HTTP client with native SOCKS proxy support
 - **socksio**: SOCKS proxy protocol support for httpx
+- **PySocks**: SOCKS proxy library
 - **speedtest-cli**: Network speed testing (system speed)
 - **requests**: HTTP library for proxy info checking
+- **Nuitka**: Python compiler for building standalone executables
+- **zstandard**: Compression library used by Nuitka
+
+## Building Executable
+
+To build a standalone executable file:
+
+1. Create production environment configuration:
+```bash
+copy .env.example .env.prod
+```
+
+2. Build the executable:
+```bash
+script\build.bat <version>
+```
+
+Example:
+```bash
+script\build.bat 1.0.0
+```
+
+This will create `prospeed-v1.0.0.exe` in the `build/` directory using Nuitka compiler.
+
+**Requirements for building:**
+- Nuitka installed (`pip install nuitka`)
+- C compiler (Visual Studio Build Tools on Windows)
 
 ## How It Works
 

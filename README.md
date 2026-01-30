@@ -116,25 +116,30 @@ prospeed-app/
 │   ├── __init__.py
 │   ├── main.py          # Application entry point
 │   └── speed.py         # Proxy testing logic and UI
+├── build/               # Build output directory
 ├── script/
 │   ├── requirement.bat  # Install dependencies
-│   └── serve.bat        # Run the application
+│   ├── serve.bat        # Run the application
+│   ├── build.bat        # Build executable
+│   └── release.bat      # Release script
 ├── requirements.txt     # Python dependencies
+├── .env.example         # Environment configuration template
 └── README.md
 ```
 
 ## Dependencies
 
-- **requests**: HTTP library for API calls and proxy testing
-- **speedtest-cli**: Network speed testing
-- **PySocks**: SOCKS proxy support
+- **httpx**: Modern HTTP client with native SOCKS proxy support
+- **socksio**: SOCKS proxy protocol support for httpx
+- **speedtest-cli**: Network speed testing (system speed)
+- **requests**: HTTP library for proxy info checking
 
 ## How It Works
 
-1. System Speed Test: Measures your direct internet connection speed using speedtest-cli
-2. Proxy Info Check: Uses ip-api.com to retrieve geolocation and ISP information
-3. Proxy Speed Test: Routes speedtest-cli through the proxy using SOCKS/HTTP tunneling
-4. Results Display: Shows comprehensive metrics in an organized table view
+1. **System Speed Test**: Measures your direct internet connection speed using speedtest-cli
+2. **Proxy Info Check**: Uses ip-api.com to retrieve geolocation and ISP information
+3. **Proxy Speed Test**: Uses httpx client with native SOCKS/HTTP proxy support to test speed via speedtest.net servers
+4. **Results Display**: Shows comprehensive metrics in an organized table view with color-coded status
 
 ## Limitations
 

@@ -1,3 +1,11 @@
 # Python
 /.venv
 /**/__pycache__
+
+# Build
+/build/*
+!/build/.gitkeep
+
+# Environment
+.env.*
+!.env.example

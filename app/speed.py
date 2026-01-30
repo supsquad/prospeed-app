@@ -299,7 +299,7 @@ class ProxySpeedTester:
                     raise Exception("No servers available")
 
                 server = servers[0]
-                server_url = server['url']
+                server_url = server["url"]
 
                 # 2. Measure latency
                 latency_tests = []
@@ -312,7 +312,18 @@ class ProxySpeedTester:
                 latency = sum(latency_tests) / len(latency_tests)
 
                 # 3. Download test - multiple sizes like speedtest-cli
-                download_sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
+                download_sizes = [
+                    350,
+                    500,
+                    750,
+                    1000,
+                    1500,
+                    2000,
+                    2500,
+                    3000,
+                    3500,
+                    4000,
+                ]
                 total_bytes = 0
                 start_time = time.time()
 
@@ -330,7 +341,7 @@ class ProxySpeedTester:
                 start_time = time.time()
 
                 for size in upload_sizes:
-                    data = b'0' * size
+                    data = b"0" * size
                     url = f"{server_url}/speedtest/upload.php?x={random.randint(1, 100000)}"
                     client.post(url, content=data)
                     total_uploaded += size

@@ -1,10 +1,11 @@
 import tkinter as tk
+
 from .speed import ProxySpeedTester
 
 
 def main():
     root = tk.Tk()
-    app = ProxySpeedTester(root)
+    ProxySpeedTester(root)
     root.mainloop()
 
 

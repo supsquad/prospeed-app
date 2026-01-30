@@ -2,4 +2,6 @@
 
 for /F %%i in (.env.%1) do set %%i
 
-python -m app.main
+set PYTHONPATH=app
+
+python app/main.py

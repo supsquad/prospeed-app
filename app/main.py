@@ -1,6 +1,6 @@
 import tkinter as tk
 
-from .speed import ProxySpeedTester
+from speed import ProxySpeedTester
 
 
 def main():

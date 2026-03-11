@@ -288,11 +288,16 @@ class ProxySpeedTester:
 
             # httpx supports SOCKS and HTTP proxies natively
             # Note: httpx uses 'proxy' (singular), not 'proxies' (plural)
-            with httpx.Client(proxy=proxy_url, timeout=30.0) as client:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            with httpx.Client(proxy=proxy_url, timeout=30.0, headers=headers) as client:
                 # 1. Get speedtest server list
                 servers_response = client.get(
                     "https://www.speedtest.net/api/js/servers?engine=js&limit=5"
                 )
+                if servers_response.status_code != 200:
+                    raise Exception(f"Speedtest API returned {servers_response.status_code}")
                 servers = servers_response.json()
 
                 if not servers:
@@ -301,11 +306,16 @@ class ProxySpeedTester:
                 server = servers[0]
                 server_url = server["url"]
 
+                # Extract base URL (scheme + host:port) - server_url may be like
+                # "http://host:port/speedtest/upload.php", so strip the path
+                parsed_server = urlparse(server_url)
+                base_url = f"{parsed_server.scheme}://{parsed_server.netloc}"
+
                 # 2. Measure latency
                 latency_tests = []
                 for _ in range(3):
                     start = time.time()
-                    ping_url = f"{server_url}/speedtest/latency.txt?x={random.randint(1, 100000)}"
+                    ping_url = f"{base_url}/speedtest/latency.txt?x={random.randint(1, 100000)}"
                     client.get(ping_url)
                     latency_tests.append((time.time() - start) * 1000)
 
@@ -328,7 +338,7 @@ class ProxySpeedTester:
                 start_time = time.time()
 
                 for size_kb in download_sizes:
-                    url = f"{server_url}/speedtest/random{size_kb}x{size_kb}.jpg?x={random.randint(1, 100000)}"
+                    url = f"{base_url}/speedtest/random{size_kb}x{size_kb}.jpg?x={random.randint(1, 100000)}"
                     response = client.get(url)
                     total_bytes += len(response.content)
 
@@ -342,7 +352,7 @@ class ProxySpeedTester:
 
                 for size in upload_sizes:
                     data = b"0" * size
-                    url = f"{server_url}/speedtest/upload.php?x={random.randint(1, 100000)}"
+                    url = f"{base_url}/speedtest/upload.php?x={random.randint(1, 100000)}"
                     client.post(url, content=data)
                     total_uploaded += size
 

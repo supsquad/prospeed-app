@@ -31,7 +31,7 @@ class ProxySpeedTester:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(0, weight=1)
-        main_frame.rowconfigure(4, weight=1)
+        main_frame.rowconfigure(5, weight=1)
 
         # System bandwidth section
         system_frame = ttk.LabelFrame(main_frame, text="System Bandwidth", padding="10")
@@ -86,9 +86,17 @@ class ProxySpeedTester:
         self.progress = ttk.Progressbar(main_frame, mode="indeterminate")
         self.progress.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
+        # Log section
+        log_frame = ttk.LabelFrame(main_frame, text="Log", padding="5")
+        log_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        log_frame.columnconfigure(0, weight=1)
+
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=5, state=tk.DISABLED, font=("Consolas", 9))
+        self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
+
         # Results section
         results_frame = ttk.LabelFrame(main_frame, text="Test Results", padding="10")
-        results_frame.grid(row=4, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        results_frame.grid(row=5, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         results_frame.columnconfigure(0, weight=1)
         results_frame.rowconfigure(0, weight=1)
 
@@ -137,6 +145,14 @@ class ProxySpeedTester:
 
         self.tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+
+    def log(self, msg):
+        import datetime
+        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.insert(tk.END, f"[{ts}] {msg}\n")
+        self.log_text.see(tk.END)
+        self.log_text.config(state=tk.DISABLED)
 
     def test_system_speed(self):
         def run_test():
@@ -278,91 +294,61 @@ class ProxySpeedTester:
             return 0, 0, 9999
 
     def _measure_speed_with_speedtest_proxy(self, proxy_dict):
-        """Universal proxy speed test using httpx library (supports SOCKS4/5 and HTTP)"""
+        """Measure proxy speed using Cloudflare Speed Test (no rate limiting)"""
         try:
-            # Build proxy URL - httpx supports socks5://, socks4://, http:// natively
             if proxy_dict.get("username") and proxy_dict.get("password"):
                 proxy_url = f"{proxy_dict['protocol']}://{proxy_dict['username']}:{proxy_dict['password']}@{proxy_dict['host']}:{proxy_dict['port']}"
             else:
                 proxy_url = f"{proxy_dict['protocol']}://{proxy_dict['host']}:{proxy_dict['port']}"
 
-            # httpx supports SOCKS and HTTP proxies natively
-            # Note: httpx uses 'proxy' (singular), not 'proxies' (plural)
+            proxy_label = f"{proxy_dict['host']}:{proxy_dict['port']}"
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
-            with httpx.Client(proxy=proxy_url, timeout=30.0, headers=headers) as client:
-                # 1. Get speedtest server list
-                servers_response = client.get(
-                    "https://www.speedtest.net/api/js/servers?engine=js&limit=5"
-                )
-                if servers_response.status_code != 200:
-                    raise Exception(f"Speedtest API returned {servers_response.status_code}")
-                servers = servers_response.json()
 
-                if not servers:
-                    raise Exception("No servers available")
+            with httpx.Client(proxy=proxy_url, timeout=60.0, headers=headers) as client:
+                base = "https://speed.cloudflare.com"
 
-                server = servers[0]
-                server_url = server["url"]
-
-                # Extract base URL (scheme + host:port) - server_url may be like
-                # "http://host:port/speedtest/upload.php", so strip the path
-                parsed_server = urlparse(server_url)
-                base_url = f"{parsed_server.scheme}://{parsed_server.netloc}"
-
-                # 2. Measure latency
+                # 1. Latency
+                self.root.after(0, self.log, f"[{proxy_label}] Measuring latency...")
                 latency_tests = []
                 for _ in range(3):
                     start = time.time()
-                    ping_url = f"{base_url}/speedtest/latency.txt?x={random.randint(1, 100000)}"
-                    client.get(ping_url)
+                    client.get(f"{base}/__down?bytes=0")
                     latency_tests.append((time.time() - start) * 1000)
-
                 latency = sum(latency_tests) / len(latency_tests)
+                self.root.after(0, self.log, f"[{proxy_label}] Latency: {latency:.1f} ms")
 
-                # 3. Download test - multiple sizes like speedtest-cli
-                download_sizes = [
-                    350,
-                    500,
-                    750,
-                    1000,
-                    1500,
-                    2000,
-                    2500,
-                    3000,
-                    3500,
-                    4000,
-                ]
+                # 2. Download test
+                self.root.after(0, self.log, f"[{proxy_label}] Measuring download...")
+                download_chunks = [1_000_000, 5_000_000, 10_000_000, 25_000_000]
                 total_bytes = 0
                 start_time = time.time()
-
-                for size_kb in download_sizes:
-                    url = f"{base_url}/speedtest/random{size_kb}x{size_kb}.jpg?x={random.randint(1, 100000)}"
-                    response = client.get(url)
-                    total_bytes += len(response.content)
-
+                for chunk in download_chunks:
+                    resp = client.get(f"{base}/__down?bytes={chunk}")
+                    total_bytes += len(resp.content)
                 download_time = time.time() - start_time
                 download_speed_mbps = (total_bytes * 8) / (download_time * 1_000_000)
+                self.root.after(0, self.log, f"[{proxy_label}] Download: {download_speed_mbps:.2f} Mbps")
 
-                # 4. Upload test
-                upload_sizes = [32768, 65536, 131072, 262144, 524288, 1048576]
+                # 3. Upload test
+                self.root.after(0, self.log, f"[{proxy_label}] Measuring upload...")
+                upload_chunks = [1_000_000, 5_000_000, 10_000_000]
                 total_uploaded = 0
                 start_time = time.time()
-
-                for size in upload_sizes:
-                    data = b"0" * size
-                    url = f"{base_url}/speedtest/upload.php?x={random.randint(1, 100000)}"
-                    client.post(url, content=data)
-                    total_uploaded += size
-
+                for chunk in upload_chunks:
+                    data = b"0" * chunk
+                    client.post(f"{base}/__up", content=data)
+                    total_uploaded += chunk
                 upload_time = time.time() - start_time
                 upload_speed_mbps = (total_uploaded * 8) / (upload_time * 1_000_000)
+                self.root.after(0, self.log, f"[{proxy_label}] Upload: {upload_speed_mbps:.2f} Mbps")
 
                 return download_speed_mbps, upload_speed_mbps, latency
 
         except Exception as e:
-            print(f"Speedtest proxy error: {e}")
+            proxy_label = f"{proxy_dict.get('host', '?')}:{proxy_dict.get('port', '?')}"
+            self.root.after(0, self.log, f"[{proxy_label}] ERROR: {type(e).__name__}: {e}")
             return 0, 0, 9999
 
     def test_proxy(self, proxy_string):
@@ -383,8 +369,10 @@ class ProxySpeedTester:
             }
 
         try:
-            # Get proxy info
+            proxy_label = f"{proxy_dict['host']}:{proxy_dict['port']}"
+            self.root.after(0, self.log, f"[{proxy_label}] Checking IP info...")
             info = self.check_proxy_info(proxy_dict)
+            self.root.after(0, self.log, f"[{proxy_label}] IP: {info['ip']} ({info['country']}, {info['isp']})")
 
             # Measure speed
             download, upload, latency = self.measure_speed(proxy_dict)
@@ -403,7 +391,7 @@ class ProxySpeedTester:
                 "status": status,
             }
         except Exception as e:
-            print(f"Error testing proxy {proxy_string}: {e}")
+            self.root.after(0, self.log, f"[{proxy_string}] FAILED: {type(e).__name__}: {e}")
             return {
                 "proxy": proxy_string,
                 "ip": "Error",

@@ -1,29 +1,28 @@
-# Proxy Speed Tester
+# ProSpeed — Proxy Speed Tester
 
 A desktop application for testing and comparing proxy server performance metrics including download speed, upload speed, latency, and geolocation information.
 
-![App Screenshot](screenshot.png)
-
 ## Features
 
-- Test system bandwidth without proxy
-- Test multiple proxy servers simultaneously
-- Support for multiple proxy protocols (HTTP, HTTPS, SOCKS4, SOCKS5)
-- Proxy authentication support (username/password)
-- Display detailed metrics:
-  - IP address
-  - Country and city location
-  - ISP information
+- **Dark modern UI** — GitHub-inspired dark theme with color-coded results
+- **System bandwidth test** — Measure your direct internet connection as a baseline
+- **Multi-proxy testing** — Test multiple proxy servers sequentially
+- **Protocol support** — HTTP, HTTPS, SOCKS4, SOCKS5
+- **Proxy authentication** — username:password support
+- **Detailed metrics per proxy:**
+  - IP address, Country, City, ISP (via ip-api.com)
   - Download speed (Mbps)
   - Upload speed (Mbps)
   - Latency (ms)
-- Color-coded results (green for OK, red for failed/slow)
-- Easy-to-use graphical interface
+- **Color-coded results** — green rows for OK, red rows for failed/slow
+- **Real-time activity log** — live output with color-highlighted speed metrics and errors
+- **Progress counter** — status bar showing `tested / total`
+- **Stop anytime** — halt testing mid-run without losing existing results
 
 ## Requirements
 
 - Python 3.7+
-- tkinter (usually included with Python)
+- tkinter (included with Python on Windows)
 
 ## Installation
 
@@ -33,80 +32,52 @@ git clone <repository-url>
 cd prospeed-app
 ```
 
-2. Create a virtual environment:
+2. Create and activate a virtual environment:
 ```bash
 python -m venv .venv
-```
-
-3. Activate the virtual environment:
-
-Windows:
-```bash
 .venv\Scripts\activate
 ```
 
-Linux/Mac:
-```bash
-source .venv/bin/activate
-```
-
-4. Install dependencies:
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-Or use the provided script:
+4. Create environment configuration (if not already present):
 ```bash
-script\requirement.bat
+copy .env.example .env.local
 ```
-
-5. Create environment configuration file:
-```bash
-cp .env.example .env.dev
-```
-
-Or on Windows:
-```bash
-copy .env.example .env.dev
-```
-
-The `.env.dev` file contains configuration settings for development mode. You can modify it as needed.
 
 ## Usage
 
 ### Running the Application
 
-Windows:
 ```bash
-script\serve.bat dev
+script\run.bat local
 ```
 
 Or directly:
 ```bash
-python -m app.main
+python app/main.py
 ```
 
 ### Testing Proxies
 
-1. Click "Test System Speed" to measure your baseline internet speed
+1. *(Optional)* Click **Test System Speed** to measure your baseline connection
 2. Enter proxy addresses in the input field, one per line
-3. Supported formats:
-   - `protocol://ip:port`
-   - `protocol://username:password@ip:port`
+3. Click **▶ Test Proxies** to start
+4. Results appear in the table as each proxy is tested
+5. Use **■ Stop** to halt, or **Clear Results** to reset
 
-Examples:
+**Supported proxy formats:**
 ```
 http://192.168.1.1:8080
 https://192.168.1.1:8443
-socks5://192.168.1.1:1080
 socks4://192.168.1.1:1080
+socks5://192.168.1.1:1080
 http://user:pass@192.168.1.1:8080
 socks5://user:pass@192.168.1.1:1080
 ```
-
-4. Click "Test Proxies" to start testing
-5. View results in the table below
-6. Use "Stop" to halt testing or "Clear Results" to reset
 
 ## Project Structure
 
@@ -114,72 +85,74 @@ socks5://user:pass@192.168.1.1:1080
 prospeed-app/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py          # Application entry point
-│   └── speed.py         # Proxy testing logic and UI
-├── build/               # Build output directory
+│   ├── main.py          # Entry point
+│   └── speed.py         # UI and proxy testing logic
+├── build/               # Build output
 ├── script/
-│   ├── requirement.bat  # Install dependencies
-│   ├── serve.bat        # Run the application
-│   ├── build.bat        # Build executable
-│   └── release.bat      # Release script
-├── requirements.txt     # Python dependencies
-├── .env.example         # Environment configuration template
+│   ├── requirement.bat  # Freeze dependencies to requirements.txt
+│   ├── run.bat          # Run the application
+│   ├── build.bat        # Build executable with Nuitka
+│   └── release.bat      # Tag and publish a GitHub release
+├── requirements.txt
+├── .env.example
 └── README.md
 ```
 
 ## Dependencies
 
-- **httpx**: Modern HTTP client with native SOCKS proxy support
-- **socksio**: SOCKS proxy protocol support for httpx
-- **PySocks**: SOCKS proxy library
-- **speedtest-cli**: Network speed testing (system speed)
-- **requests**: HTTP library for proxy info checking
-- **Nuitka**: Python compiler for building standalone executables
-- **zstandard**: Compression library used by Nuitka
+| Package | Purpose |
+|---|---|
+| `httpx` | HTTP client with native SOCKS proxy support |
+| `socksio` | SOCKS protocol support for httpx |
+| `PySocks` | SOCKS proxy library |
+| `speedtest-cli` | System speed test (direct connection) |
+| `requests` | IP geolocation lookup |
+| `Nuitka` | Compile to standalone `.exe` |
+| `zstandard` | Compression (Nuitka dependency) |
+
+Install: `pip install -r requirements.txt`
+Freeze: `script\requirement.bat`
 
 ## Building Executable
 
-To build a standalone executable file:
-
-1. Create production environment configuration:
-```bash
-copy .env.example .env.prod
-```
-
-2. Build the executable:
-```bash
-script\build.bat <version>
-```
-
-Example:
 ```bash
 script\build.bat 1.0.0
 ```
 
-This will create `prospeed-v1.0.0.exe` in the `build/` directory using Nuitka compiler.
+Output: `build/prospeed-v1.0.0.exe` (uses `.env.prod`)
 
-**Requirements for building:**
-- Nuitka installed (`pip install nuitka`)
-- C compiler (Visual Studio Build Tools on Windows)
+> Requires Nuitka and Visual Studio Build Tools (MSVC compiler).
+
+### Releasing
+
+```bash
+script\release.bat 1.0.0
+```
+
+Creates a git tag, pushes to remote, and publishes a GitHub Release with the `.exe` attached.
+
+### Saving Dependencies
+
+```bash
+script\requirement.bat
+```
+
+Freezes currently installed packages into `requirements.txt` (`pip freeze`).
 
 ## How It Works
 
-1. **System Speed Test**: Measures your direct internet connection speed using speedtest-cli
-2. **Proxy Info Check**: Uses ip-api.com to retrieve geolocation and ISP information
-3. **Proxy Speed Test**: Uses httpx client with native SOCKS/HTTP proxy support to test speed via speedtest.net servers
-4. **Results Display**: Shows comprehensive metrics in an organized table view with color-coded status
+1. **System Speed** — uses `speedtest-cli` to test direct internet speed
+2. **Proxy Info** — queries `ip-api.com` through each proxy for geolocation + ISP
+3. **Proxy Speed** — uses `httpx` with native SOCKS/HTTP proxy to test speed via Cloudflare Speed Test endpoints
+4. **Results** — displayed in a sortable table; rows color-coded by status
 
 ## Limitations
 
-- Speed testing can take time depending on the number of proxies
-- Some proxies may block speedtest servers
-- Requires active internet connection
-- Free IP geolocation API has rate limits
+- Testing is sequential; many proxies will take time
+- Some proxies block speed test servers
+- `ip-api.com` free tier has rate limits (45 req/min)
+- Requires an active internet connection
 
 ## License
 
 This project is provided as-is for educational and testing purposes.
-
-## Contributing
-
-Feel free to submit issues and enhancement requests.
